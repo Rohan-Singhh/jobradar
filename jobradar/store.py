@@ -79,6 +79,51 @@ class Store:
         self.db.commit()
         return fresh
 
+    def mark_closed(self, companies: list[str], run_ts: float | None = None) -> list[sqlite3.Row]:
+        """A tracked job that stopped appearing on its board is treated as closed.
+        Only applies to companies we actually fetched successfully this run.
+
+        run_ts defaults to the timestamp of the last upsert, so 'was not seen in
+        the run that just finished' cannot be skewed by the caller's clock."""
+        run_ts = run_ts if run_ts is not None else getattr(self, "last_upsert_ts", time.time())
+        if not companies:
+            return []
+        marks = ",".join("?" * len(companies))
+        rows = self.db.execute(
+            f"""SELECT * FROM jobs WHERE company IN ({marks})
+                AND closed_at IS NULL AND last_seen < ?""",
+            (*companies, run_ts),
+        ).fetchall()
+        for r in rows:
+            self.db.execute("UPDATE jobs SET closed_at = ? WHERE id = ?", (run_ts, r["id"]))
+        self.db.commit()
+        return rows
+
+    # -- scoring ------------------------------------------------------------
+    def close_stale(self, sources: list[str], max_age_days: int) -> list[sqlite3.Row]:
+        """Close jobs from sources that give no reliable presence signal.
+
+        A company board is authoritative: if a posting is absent from a clean
+        fetch, it is gone. Aggregators are keyword feeds, so absence from one
+        run means only that a query did not surface it. For those, age is the
+        only usable signal - a listing not re-confirmed in weeks is treated as
+        expired rather than shown as live indefinitely.
+        """
+        if not sources:
+            return []
+        cutoff = time.time() - max_age_days * 86400
+        marks = ",".join("?" * len(sources))
+        rows = self.db.execute(
+            f"""SELECT * FROM jobs WHERE source IN ({marks})
+                AND closed_at IS NULL AND last_seen < ?""",
+            (*sources, cutoff),
+        ).fetchall()
+        for r in rows:
+            self.db.execute("UPDATE jobs SET closed_at = ? WHERE id = ?",
+                            (time.time(), r["id"]))
+        self.db.commit()
+        return rows
+
     def stats(self) -> dict:
         row = self.db.execute(
             "SELECT COUNT(*) total, SUM(closed_at IS NULL) open FROM jobs"
