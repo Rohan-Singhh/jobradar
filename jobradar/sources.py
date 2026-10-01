@@ -153,3 +153,79 @@ def discover(queries: list[str], max_per_query: int = 40) -> tuple[list[dict], l
                 errors.append(f"{fn.__name__}({q}): {type(e).__name__}: {e}")
             time.sleep(0.6)   # be polite to free endpoints
     return jobs, errors
+
+# --------------------------------------------------------------------------
+# Enterprise boards. Large companies rarely use Greenhouse/Lever; most sit on
+# Workday or Oracle Recruiting Cloud, each with a public JSON endpoint.
+# --------------------------------------------------------------------------
+
+def _post(url: str, body: dict) -> Any:
+    r = requests.post(url, headers={**UA, "Content-Type": "application/json",
+                                    "Accept": "application/json"},
+                      json=body, timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+def workday(name: str, slug: str) -> list[dict]:
+    """slug is 'tenant/wdN/site', e.g. 'adobe/wd5/external_experienced'."""
+    tenant, wd, site = slug.split("/")
+    base = f"https://{tenant}.{wd}.myworkdayjobs.com"
+    api = f"{base}/wday/cxs/{tenant}/{site}/jobs"
+    out: list[dict] = []
+    # Workday pages 20 at a time and caps hard; a few pages is plenty per run.
+    for offset in range(0, 200, 20):
+        data = _post(api, {"appliedFacets": {}, "limit": 20,
+                           "offset": offset, "searchText": ""})
+        postings = data.get("jobPostings") or []
+        if not postings:
+            break
+        for j in postings:
+            path = j.get("externalPath") or ""
+            out.append(_norm(
+                name, j.get("title"), f"{base}/{site}{path}",
+                j.get("locationsText", ""), None,
+                j.get("bulletFields") and " ".join(j["bulletFields"]) or "", "workday"))
+        if len(postings) < 20:
+            break
+    return out
+
+
+def oracle_cloud(name: str, slug: str) -> list[dict]:
+    """slug is 'host/siteNumber', e.g. 'eeho.fa.us2.oraclecloud.com/CX_1'."""
+    host, site = slug.split("/", 1)
+    out: list[dict] = []
+    # requisitionList is only returned when explicitly expanded.
+    for offset in (0, 200, 400):
+        url = (f"https://{host}/hcmRestApi/resources/latest/recruitingCEJobRequisitions"
+               f"?onlyData=true&expand=requisitionList.secondaryLocations"
+               f"&finder=findReqs;siteNumber={site},limit=200,offset={offset}")
+        items = (_get(url).get("items") or [{}])[0]
+        reqs = items.get("requisitionList") or []
+        if not reqs:
+            break
+        for j in reqs:
+            rid = j.get("Id") or ""
+            out.append(_norm(name, j.get("Title"),
+                             f"https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{rid}",
+                             j.get("PrimaryLocation") or "", _epoch(j.get("PostedDate")),
+                             j.get("ShortDescriptionStr") or "", "oracle"))
+        if len(reqs) < 200:
+            break
+    return out
+
+
+def atlassian_board(name: str, slug: str) -> list[dict]:
+    """Atlassian publishes its own JSON feed rather than using a hosted board."""
+    data = _get("https://www.atlassian.com/endpoint/careers/listings")
+    out = []
+    for j in data:
+        portal = j.get("portalJobPost") or {}
+        locs = j.get("locations") or []
+        out.append(_norm(name, j.get("title"), portal.get("portalUrl"),
+                         "; ".join(locs[:2]), _epoch(portal.get("updatedDate")),
+                         re.sub(r"<[^>]+>", " ", j.get("overview") or ""), "atlassian"))
+    return out
+
+
+BOARDS.update({"workday": workday, "oracle": oracle_cloud, "atlassian": atlassian_board})
