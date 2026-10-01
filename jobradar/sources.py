@@ -112,3 +112,44 @@ def fetch_company(entry: dict) -> tuple[list[dict], str | None]:
         return jobs, None
     except Exception as e:  # noqa: BLE001
         return [], f"{type(e).__name__}: {e}"
+
+
+# --------------------------------------------------------------------------
+# Aggregators (keyless, for resume-driven discovery)
+# --------------------------------------------------------------------------
+
+def remotive(query: str, limit: int = 40) -> list[dict]:
+    data = _get(f"https://remotive.com/api/remote-jobs?search={requests.utils.quote(query)}&limit={limit}")
+    return [
+        _norm(j.get("company_name", "?"), j.get("title"), j.get("url"),
+              j.get("candidate_required_location", "Remote"),
+              _epoch(j.get("publication_date")), j.get("description", ""), "remotive")
+        for j in data.get("jobs", [])[:limit]
+    ]
+
+
+def arbeitnow(query: str, limit: int = 40) -> list[dict]:
+    data = _get("https://www.arbeitnow.com/api/job-board-api")
+    q = query.lower()
+    out = []
+    for j in data.get("data", []):
+        hay = f"{j.get('title','')} {' '.join(j.get('tags') or [])}".lower()
+        if q in hay:
+            out.append(_norm(j.get("company_name", "?"), j.get("title"), j.get("url"),
+                             j.get("location", ""), _epoch(j.get("created_at")),
+                             j.get("description", ""), "arbeitnow"))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def discover(queries: list[str], max_per_query: int = 40) -> tuple[list[dict], list[str]]:
+    jobs, errors = [], []
+    for q in queries:
+        for fn in (remotive, arbeitnow):
+            try:
+                jobs.extend(fn(q, max_per_query))
+            except Exception as e:  # noqa: BLE001
+                errors.append(f"{fn.__name__}({q}): {type(e).__name__}: {e}")
+            time.sleep(0.6)   # be polite to free endpoints
+    return jobs, errors
