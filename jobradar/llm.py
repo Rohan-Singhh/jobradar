@@ -162,3 +162,55 @@ def score_job(llm: LLM, profile: str, job) -> tuple[int, str]:
         raise            # key/model misconfiguration - fail loudly, do not score all zeros
     except Exception as e:  # noqa: BLE001 - one bad response must not abort the run
         return 0, f"scoring failed: {type(e).__name__}: {e}", {}
+
+
+class ChatScorer:
+    """Wraps a chat LLM in the same interface the other backends expose, so
+    main.py and the web server never branch on which one is configured."""
+
+    batch_size = 25
+
+    def __init__(self, provider: str, model: str):
+        self.provider = provider
+        self.llm = LLM(provider, model)
+        self.input_tokens = 0
+
+    def score_batch(self, profile: str, jobs: list[dict]) -> dict[str, tuple]:
+        """One request per 25 jobs. Providers charge a fixed overhead per call
+        (xkiro prepends ~550 tokens of its own), so per-job requests would pay
+        that thousands of times over."""
+        if not jobs:
+            return {}
+        # ~45 output tokens per job plus slack; capping this stops a model
+        # rambling into a bill.
+        cap = min(4000, 120 + 60 * len(jobs))
+        text = self.llm.chat(batch.build_messages(profile, jobs), max_tokens=cap)
+        return batch.parse(text, jobs)
+
+    def score(self, profile: str, job) -> tuple:
+        j = dict(job)
+        j.setdefault("id", "single")
+        return self.score_batch(profile, [j]).get(j["id"], (0, "no result", {}))
+
+    def complete(self, prompt: str, **kw) -> str:
+        return self.llm.complete(prompt, **kw)
+
+    @property
+    def tokens_used(self) -> int:
+        return self.llm.input_tokens + self.llm.output_tokens
+
+
+def make_scorer(provider: str, model: str, params: dict | None = None):
+    """Returns None when scoring is disabled."""
+    if provider in (None, "none", ""):
+        return None
+    if provider == "local":
+        from .localmatch import LocalScorer
+        return LocalScorer(model)          # `model` carries the resume text here
+    if provider == "cursor":
+        from .cursor import CursorScorer
+        return CursorScorer(model, params)
+    if provider == "jev":
+        from .jev import JevScorer
+        return JevScorer(model)
+    return ChatScorer(provider, model)
