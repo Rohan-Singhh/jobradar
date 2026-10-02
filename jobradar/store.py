@@ -124,6 +124,82 @@ class Store:
         self.db.commit()
         return rows
 
+    def save_score(self, job_id: str, score: int, reason: str,
+                   breakdown: dict | None = None) -> None:
+        self.db.execute(
+            "UPDATE jobs SET score = ?, reason = ?, breakdown = ? WHERE id = ?",
+            (score, reason, json.dumps(breakdown or {}), job_id),
+        )
+        self.db.commit()
+
+    def unscored(self, limit: int) -> list[sqlite3.Row]:
+        return self.db.execute(
+            "SELECT * FROM jobs WHERE score IS NULL AND closed_at IS NULL "
+            "ORDER BY first_seen DESC LIMIT ?", (limit,)
+        ).fetchall()
+
+    # -- reporting ----------------------------------------------------------
+    def unscored_count(self) -> int:
+        return self.db.execute(
+            "SELECT COUNT(*) FROM jobs WHERE score IS NULL AND closed_at IS NULL"
+        ).fetchone()[0]
+
+    def since(self, seconds: float, min_score: int = 0) -> list[sqlite3.Row]:
+        cutoff = time.time() - seconds
+        return self.db.execute(
+            """SELECT * FROM jobs WHERE first_seen >= ? AND closed_at IS NULL
+               AND (score IS NULL OR score >= ?)
+               ORDER BY score DESC NULLS LAST, first_seen DESC""",
+            (cutoff, min_score),
+        ).fetchall()
+
+    def closed_since(self, seconds: float) -> list[sqlite3.Row]:
+        cutoff = time.time() - seconds
+        return self.db.execute(
+            "SELECT * FROM jobs WHERE closed_at >= ? ORDER BY closed_at DESC", (cutoff,)
+        ).fetchall()
+
+    def unnotified(self, min_score: int, require_scored: bool = False) -> list[sqlite3.Row]:
+        """require_scored=True when a scorer is configured: a job the run had no
+        budget left to score must wait for the next run rather than arrive
+        unranked. Without it, a first scan of a big watchlist would email every
+        job that overflowed max_to_score."""
+        unscored = "AND score IS NOT NULL" if require_scored else ""
+        return self.db.execute(
+            f"""SELECT * FROM jobs WHERE notified = 0 AND closed_at IS NULL
+                {unscored} AND (score IS NULL OR score >= ?)
+                ORDER BY score DESC NULLS LAST, first_seen DESC""",
+            (min_score,),
+        ).fetchall()
+
+    def unalerted(self) -> list[sqlite3.Row]:
+        """Jobs never sent as an instant alert. Separate from `notified` so the
+        weekly digest and the alerts do not consume each other's queue."""
+        return self.db.execute(
+            """SELECT * FROM jobs WHERE alerted = 0 AND closed_at IS NULL
+               ORDER BY first_seen DESC"""
+        ).fetchall()
+
+    def baselined_companies(self) -> set[str]:
+        """Companies that have been through at least one alert run. Anything
+        else is being seen for the first time, so its whole board is history,
+        not news."""
+        return {r["company"] for r in
+                self.db.execute("SELECT DISTINCT company FROM jobs WHERE alerted = 1")}
+
+    def mark_alerted(self, ids: list[str]) -> None:
+        self.db.executemany("UPDATE jobs SET alerted = 1 WHERE id = ?", [(i,) for i in ids])
+        self.db.commit()
+
+    def mark_notified(self, ids: list[str]) -> None:
+        self.db.executemany("UPDATE jobs SET notified = 1 WHERE id = ?", [(i,) for i in ids])
+        self.db.commit()
+
+    def log_run(self, new_count: int, closed_count: int, errors: list[str]) -> None:
+        self.db.execute("INSERT OR REPLACE INTO runs VALUES (?,?,?,?)",
+                        (int(time.time()), new_count, closed_count, "\n".join(errors)))
+        self.db.commit()
+
     def stats(self) -> dict:
         row = self.db.execute(
             "SELECT COUNT(*) total, SUM(closed_at IS NULL) open FROM jobs"
