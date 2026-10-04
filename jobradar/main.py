@@ -325,3 +325,123 @@ def cmd_scan(cfg: dict, store: Store, quiet: bool = False) -> dict:
         print(f"\n{len(new)} new · {len(closed)} closed · {scored} scored · "
               f"{len(errors)} errors{cost}")
     return {"new": len(new), "closed": len(closed), "errors": errors}
+
+
+def cmd_digest(cfg: dict, store: Store, days: int, dry_run: bool) -> None:
+    llm_cfg = cfg.get("llm", {})
+    min_score = llm_cfg.get("min_score", 0)
+    scoring_on = llm_cfg.get("provider", "none") not in ("none", None, "")
+    pending = store.unnotified(min_score, require_scored=scoring_on)
+    closed = store.closed_since(days * 86400)
+
+    # Cap what one email shows. The first run after a fresh scan has the entire
+    # board pending - thousands of jobs - and mailing all of them is useless.
+    # Everything pending is still marked notified, so this run establishes the
+    # baseline and later emails carry only genuinely new postings.
+    cap = int(cfg.get("digest", {}).get("max_jobs", 60))
+    new = pending[:cap]
+    overflow = len(pending) - len(new)
+    label = time.strftime("Week of %d %b %Y")
+    notes = []
+    if overflow > 0:
+        notes.append(f"Showing the top {len(new)} of {len(pending)} tracked openings; "
+                     f"{overflow} more are on file. Later emails carry only new ones.")
+    html, text = digest_mod.render(new, closed, label, notes)
+
+    if dry_run:
+        _ = notes
+        out = ROOT / "digest_preview.html"
+        out.write_text(html)
+        print(text)
+        print(f"\nPreview written to {out}")
+        return
+    if not pending and not closed:
+        print("Nothing to report; no email sent.")
+        return
+
+    count = len(pending)
+    subject = f"Job Radar — {count} new opening{'s' if count != 1 else ''}"
+    digest_mod.send(cfg["email"], subject, html, text)
+    store.mark_notified([r["id"] for r in pending])   # all of them, not just the shown ones
+    print(f"Sent to {cfg['email']['to']}: {len(new)} shown of {count} new, "
+          f"{len(closed)} closed.")
+
+
+def cmd_alert(cfg: dict, store: Store, dry_run: bool) -> None:
+    """Check only the prioritised companies, then mail anything new at once.
+
+    This runs daily, so it deliberately does NOT do a full scan: it fetches
+    just the watched boards and skips aggregator discovery. A dozen companies
+    is seconds of network and a handful of scoring batches, against minutes and
+    ~130 batches for the whole board.
+    """
+    watch = alerts_mod.watched_names(cfg)
+    narrow = dict(cfg)
+    narrow["companies"] = [e for e in cfg.get("companies", []) if e["name"] in watch]
+    narrow["discovery"] = {"enabled": False}
+    cmd_scan(narrow, store, quiet=True)
+    baselined = store.baselined_companies()
+    pending = store.unalerted()
+    rows = alerts_mod.pick(pending, cfg, baselined)
+    fresh = {r["company"] for r in pending} - baselined
+    if fresh and not dry_run:
+        print(f"Baselining {len(fresh)} new compan(y/ies): "
+              f"{', '.join(sorted(fresh))[:100]} — alerts start from their next opening.")
+    if not rows:
+        print("Nothing new at watched companies.")
+        # Everything seen this run becomes the new baseline either way, so a
+        # job that was below threshold is not re-examined forever.
+        store.mark_alerted([r["id"] for r in store.unalerted()])
+        return
+    cap = int(cfg.get("alerts", {}).get("max_per_alert", 15))
+    label = time.strftime("%d %b %Y, %H:%M")
+    if dry_run:
+        html, text = alerts_mod.render(rows[:cap], label)
+        Path(ROOT / "alert_preview.html").write_text(html)
+        print(text or "(nothing)")
+        print(f"\n{len(rows)} would alert; preview at alert_preview.html")
+        return
+    alerts_mod.send(cfg, rows[:cap], label)
+    store.mark_alerted([r["id"] for r in store.unalerted()])
+    print(f"Alerted {len(rows)} new opening(s) at watched companies.")
+
+
+def cmd_recap(store: Store, dry_run: bool) -> None:
+    """Re-apply the seniority and relevance caps to existing scores.
+
+    Costs nothing: both are arithmetic on data already stored, so they need no
+    model. Use after changing a threshold, or to repair scores written before
+    a gate existed.
+    """
+    rows = store.db.execute(
+        "SELECT id, title, score, reason, breakdown FROM jobs WHERE score IS NOT NULL"
+    ).fetchall()
+    changed = []
+    for r in rows:
+        try:
+            bd = json.loads(r["breakdown"]) if r["breakdown"] else {}
+        except (TypeError, ValueError):
+            bd = {}
+        new_score, new_reason = apply_cap(r["score"], r["title"], r["reason"] or "")
+        new_score, new_reason = apply_relevance_cap(new_score, bd, new_reason)
+        if new_score != r["score"]:
+            changed.append((r["id"], new_score, new_reason, r["title"], r["score"]))
+    if dry_run:
+        for _, ns, _, title, old in changed[:15]:
+            print(f"  {old} -> {ns}  {title[:60]}")
+        print(f"\n{len(changed)} of {len(rows)} scores would change (0 tokens)")
+        return
+    for jid, ns, nr, _, _ in changed:
+        store.db.execute("UPDATE jobs SET score = ?, reason = ? WHERE id = ?", (ns, nr, jid))
+    store.db.commit()
+    print(f"Capped {len(changed)} jobs (senior title or wrong field). No tokens used.")
+
+
+def cmd_list(store: Store, days: int) -> None:
+    rows = store.since(days * 86400)
+    if not rows:
+        print("Nothing new.")
+        return
+    for r in rows:
+        s = f"{r['score']}/10" if r["score"] is not None else "  - "
+        print(f"[{s}] {r['title'][:60]:<60} {r['company'][:18]:<18} {r['url']}")
