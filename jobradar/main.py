@@ -445,3 +445,45 @@ def cmd_list(store: Store, days: int) -> None:
     for r in rows:
         s = f"{r['score']}/10" if r["score"] is not None else "  - "
         print(f"[{s}] {r['title'][:60]:<60} {r['company'][:18]:<18} {r['url']}")
+
+
+def main(argv=None) -> None:
+    p = argparse.ArgumentParser(prog="jobradar")
+    p.add_argument("--config", default=str(ROOT / "config.yaml"))
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("scan")
+    d = sub.add_parser("digest"); d.add_argument("--days", type=int, default=7)
+    d.add_argument("--dry-run", action="store_true")
+    r = sub.add_parser("run"); r.add_argument("--days", type=int, default=7)
+    r.add_argument("--dry-run", action="store_true")
+    l = sub.add_parser("list"); l.add_argument("--days", type=int, default=7)
+    a = sub.add_parser("alert"); a.add_argument("--dry-run", action="store_true")
+    rc = sub.add_parser("recap"); rc.add_argument("--dry-run", action="store_true")
+    sub.add_parser("test")
+    args = p.parse_args(argv)
+
+    cfg = load_config(Path(args.config))
+    store = Store(ROOT / "jobradar.db")
+
+    if args.cmd == "scan":
+        cmd_scan(cfg, store)
+    elif args.cmd == "digest":
+        cmd_digest(cfg, store, args.days, args.dry_run)
+    elif args.cmd == "run":
+        cmd_scan(cfg, store)
+        cmd_digest(cfg, store, args.days, args.dry_run)
+    elif args.cmd == "list":
+        cmd_list(store, args.days)
+    elif args.cmd == "recap":
+        cmd_recap(store, args.dry_run)
+    elif args.cmd == "alert":
+        cmd_alert(cfg, store, args.dry_run)
+    elif args.cmd == "test":
+        digest_mod.send(cfg["email"], "Job Radar — test",
+                        "<p>SMTP works. Your weekly digest will arrive here.</p>",
+                        "SMTP works.")
+        print(f"Test email sent to {cfg['email']['to']}.")
+
+
+if __name__ == "__main__":
+    main()
