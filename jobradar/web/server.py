@@ -130,6 +130,105 @@ def _mosaic(jobs: list[dict], limit: int) -> list[dict]:
     return out
 
 
+def _scan_events(limit: int):
+    """Generator of SSE events. Fetch first, then score, emitting per job."""
+    c = cfg()
+    started = time.time()
+    q: queue.Queue = queue.Queue()
+
+    def emit(kind, **data):
+        q.put(f"data: {json.dumps({'type': kind, **data})}\n\n")
+
+    def work():
+        # sqlite3 connections are bound to the thread that created them, so the
+        # worker opens its own rather than borrowing the request thread's.
+        s = store()
+        try:
+            all_jobs, healthy = [], []
+            for entry in c.get("companies", []):
+                jobs, err = sources.fetch_company(entry)
+                if not err:
+                    healthy.append(entry["name"])
+                    all_jobs.extend(jobs)
+                emit("fetch", company=entry["name"], count=len(jobs), error=err or "")
+            disc = c.get("discovery", {})
+            if disc.get("enabled"):
+                jobs, _ = sources.discover(disc.get("queries", []), disc.get("max_per_query", 40))
+                all_jobs.extend(jobs)
+                emit("fetch", company="discovery", count=len(jobs), error="")
+
+            kept = [j for j in all_jobs if passes_filters(j, c.get("filters", {}))]
+            desc = {j["id"]: j["description"] for j in kept}
+            new = s.upsert(kept)
+            closed = s.mark_closed(healthy)
+            emit("fetched", new=len(new), closed=len(closed), total=len(kept))
+
+            if c.get("llm", {}).get("provider", "none") == "none":
+                emit("done", scored=0, elapsed=round(time.time() - started, 1))
+                return
+
+            scorer = get_scorer(c)
+            prof = get_profile(c, scorer)
+            rows = s.unscored(limit)
+            emit("scoring", count=len(rows), backlog=s.unscored_count())
+
+            # A batched backend (Cursor) judges many postings per agent run, so
+            # chunk; a per-job backend gets chunks of one and behaves as before.
+            batched = hasattr(scorer, "score_batch")
+            size = int(c.get("llm", {}).get("batch_size", getattr(scorer, "batch_size", 25)))
+            chunks = ([rows[i:i + size] for i in range(0, len(rows), size)]
+                      if batched else [[r] for r in rows])
+
+            done = 0
+            for chunk in chunks:
+                payload = []
+                for row in chunk:
+                    job = dict(row)
+                    job["description"] = desc.get(row["id"], "")
+                    payload.append(job)
+                emit("looking", id=chunk[0]["id"], company=chunk[0]["company"],
+                     title=(f"scoring {len(chunk)} jobs" if len(chunk) > 1
+                            else chunk[0]["title"]),
+                     domain=chunk[0]["domain"] or "")
+                try:
+                    if batched:
+                        results = scorer.score_batch(prof, payload)
+                    else:
+                        results = {chunk[0]["id"]: scorer.score(prof, payload[0])}
+                except (RateLimited, CursorError) as e:
+                    emit("throttled", message=str(e), scored=done)
+                    break
+                for row in chunk:
+                    score, reason, breakdown = results.get(row["id"], (0, "no result", {}))
+                    s.save_score(row["id"], score, reason, breakdown)
+                    done += 1
+                    emit("scored", id=row["id"], score=score, reason=reason,
+                         breakdown=breakdown, company=row["company"], title=row["title"],
+                         domain=row["domain"] or "", url=row["url"] or "")
+
+            emit("done", scored=done, elapsed=round(time.time() - started, 1))
+        except Exception as e:  # noqa: BLE001 - always close the stream cleanly
+            emit("error", message=f"{type(e).__name__}: {e}"[:300])
+        finally:
+            with _lock:
+                _state["scanning"] = False
+            q.put(None)
+
+    with _lock:
+        if _state["scanning"]:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'a scan is already running'})}\n\n"
+            return
+        _state["scanning"] = True
+        _state["started"] = started
+
+    threading.Thread(target=work, daemon=True).start()
+    while True:
+        item = q.get()
+        if item is None:
+            break
+        yield item
+
+
 @app.get("/api/search")
 def search(q: str = "", limit: int = 4000):
     """Full-text search across title, company, location and description.
@@ -153,3 +252,12 @@ def search(q: str = "", limit: int = 4000):
         (*params, limit),
     ).fetchall()
     return {"ids": [r["id"] for r in rows]}
+
+
+@app.get("/api/scan")
+def scan(limit: int = 120):
+    return StreamingResponse(
+        _scan_events(limit),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
