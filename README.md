@@ -37,3 +37,58 @@ internship.
 
 Both are arithmetic on data already stored, so `recap` re-applies them for free.
 
+## Setup
+
+Needs Python 3.11+ and a Mac (the schedules use launchd).
+
+```bash
+git clone https://github.com/Rohan-Singhh/jobradar.git
+cd jobradar
+./install.sh
+```
+
+Then three things:
+
+**1. Your resume** — put a PDF in the folder, point `resume_path` at it in
+`config.yaml`.
+
+**2. Your keys** — `cp run.example.sh run.sh`, then fill in:
+
+- An LLM key. Any OpenAI-compatible endpoint works; the default is
+  [xkiro](https://xkiro.com) with Mistral Large 3, which has a free tier.
+- A [Gmail App Password](https://myaccount.google.com/apppasswords) for sending
+  mail. Needs 2FA on the account first.
+
+**3. Check it works**
+
+```bash
+./run.sh test          # sends a test email
+./run.sh scan          # fetch, diff, score
+./run-web.sh           # http://localhost:8765
+```
+
+## Configuration
+
+```yaml
+companies:
+  - { name: 'Adobe', board: workday, slug: 'adobe/wd5/external_experienced' }
+
+alerts:
+  companies: [Adobe, Oracle, Atlassian]   # checked daily
+  min_score: 6
+
+llm:
+  provider: xkiro
+  model: mistralai/mistral-large-2512
+  daily_token_limit: 1000000
+```
+
+Find a company's board and slug in its careers URL:
+
+| URL | board | slug |
+|---|---|---|
+| `boards.greenhouse.io/figma` | greenhouse | `figma` |
+| `jobs.ashbyhq.com/ramp` | ashby | `ramp` |
+| `jobs.lever.co/spotify` | lever | `spotify` |
+| `adobe.wd5.myworkdayjobs.com/external_experienced` | workday | `adobe/wd5/external_experienced` |
+
