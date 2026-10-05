@@ -282,3 +282,145 @@ the resume directly.
 
 ---
 
+## Configuration
+
+`config.yaml`.
+
+```yaml
+companies:
+  - { name: 'Adobe', board: workday, slug: 'adobe/wd5/external_experienced',
+      domain: adobe.com }
+
+discovery:                    # free aggregators, for broad discovery
+  enabled: true
+  queries: ["full stack developer", "react developer", "ai engineer"]
+
+filters:
+  title_include: ["engineer", "developer", "scientist", "intern", "analyst"]
+  title_exclude: ["staff", "principal", "director", "manager", "vp "]
+  locations: []               # empty = anywhere
+
+llm:
+  provider: xkiro             # xkiro | cursor | jev | ollama | local | none
+  model: mistralai/mistral-large-2512
+  min_score: 6
+  triage: true
+  triage_floor: 3
+  batch_size: 25
+  daily_token_limit: 500000
+
+alerts:
+  companies: [Fidelity, Oracle, Adobe, Atlassian, Dell]
+  min_score: 6
+
+digest:
+  max_jobs: 60
+```
+
+### Adding a company
+
+Find the board and slug in the careers URL:
+
+| URL | board | slug |
+|---|---|---|
+| `boards.greenhouse.io/figma` | greenhouse | `figma` |
+| `jobs.ashbyhq.com/ramp` | ashby | `ramp` |
+| `jobs.lever.co/spotify` | lever | `spotify` |
+| `adobe.wd5.myworkdayjobs.com/external_experienced` | workday | `adobe/wd5/external_experienced` |
+| Oracle Recruiting Cloud | oracle | `host/CX_1` |
+
+### Backends
+
+| Provider | Cost | Notes |
+|---|---|---|
+| `xkiro` | free tier | **in use.** Mistral Large 3 — frontier-size, no reasoning mode |
+| `local` | free | keyword matching, no key, instant, shallow |
+| `none` | free | no scoring; tracking and email still work |
+| `cursor` | free tier | no inference endpoint — agents only, heavy |
+| `jev` | paid | typed decisions; better shape, $5 minimum |
+| `ollama` | free | local, needs RAM |
+
+### Secrets
+
+`run.sh` holds them, `chmod 700` and gitignored:
+
+```bash
+export XKIRO_API_KEY="..."
+export JOBRADAR_SMTP_PASSWORD="..."    # Gmail App Password, 16 chars
+```
+
+Gmail displays app passwords spaced; spaces are stripped automatically.
+
+---
+
+## Commands
+
+```bash
+./run.sh scan              # fetch, diff, score
+./run.sh digest            # send the weekly email
+./run.sh digest --dry-run  # render digest_preview.html instead
+./run.sh alert             # check the shortlist, alert if anything opened
+./run.sh alert --dry-run   # preview without sending
+./run.sh recap             # re-apply the seniority cap — free, no tokens
+./run.sh list --days 7     # the week's finds in the terminal
+./run.sh test              # SMTP check
+./run-web.sh               # web UI on :8765
+./bench-models.sh          # compare models on hand-labelled cases
+./install.sh               # venv, deps, both schedules
+```
+
+---
+
+## Testing
+
+```bash
+for t in tests/test_*.py; do ./.venv/bin/python "$t"; done
+```
+
+Nine suites. What they actually protect:
+
+| Suite | Covers |
+|---|---|
+| `test_store` | new/seen/closed/reopen, failed-fetch guard, both queues |
+| `test_budget` | the ceiling, the reserve, per-day isolation |
+| `test_pipeline` | triage safety, budget under 5× cost, seniority enforcement, provider outage |
+| `test_breakdown` | positional + legacy parsing, salvage, truncation |
+| `test_alerts` | shortlist scope, baselining, the dangerous default |
+| `test_resume` | name from profile URL, mangled PDF text, no invented fields |
+| `test_server_scan` | SSE completes, expired jobs excluded |
+| `test_cursor` | model params reach the request, prompt stays lean |
+| `test_jev` | score rescaling, penalties, cost maths |
+
+Several exist because of bugs found in use, not designed up front — the
+threading crash in the SSE scan, the seniority gate, the alert flood.
+
+---
+
+## Known limits
+
+**The resume profile is not yet model-generated.** A cached raw-text profile
+was reused across runs, and it truncates before the experience section — so the
+model's *skills* judgement is working from partial information. The seniority
+problem this caused is fixed in code; the refinement lands on the next scan
+with quota available.
+
+**LLM scores are a sort order, not a verdict.** A 4/10 is worth a glance.
+
+**Aggregator jobs have no logo** — their employers are arbitrary, so those
+tiles show initials.
+
+**`posted_at` is whatever the board reports.** Greenhouse often gives an
+*updated* date, so "posted 2d ago" can mean "edited 2d ago".
+
+**The raw board is ~77% technical.** Title filters let `intern` and `analyst`
+through, so some non-technical roles are tracked. Scoring sorts them down —
+96% of jobs scoring 7+ are engineering — but they exist in the data.
+
+**Bot-protected employers cannot be tracked.** Some career sites reject any
+non-browser request. Where a company runs a standard ATS behind a marketing
+front-end, the ATS is usually reachable directly — that is how Fidelity works
+here.
+
+**The macOS banner needs you logged in.** launchd runs the job regardless, but
+a notification only appears on an unlocked session. Email is the reliable
+channel.
