@@ -92,3 +92,47 @@ Find a company's board and slug in its careers URL:
 | `jobs.lever.co/spotify` | lever | `spotify` |
 | `adobe.wd5.myworkdayjobs.com/external_experienced` | workday | `adobe/wd5/external_experienced` |
 
+## Commands
+
+```bash
+./run.sh scan          # fetch, diff, score
+./run.sh alert         # check the shortlist, alert if anything opened
+./run.sh digest        # send the weekly email
+./run.sh recap         # re-apply the scoring rules, no tokens
+./run.sh list          # the week's finds in the terminal
+./run-web.sh           # web UI
+```
+
+`install.sh` registers two launchd jobs: daily alerts at 09:30, weekly digest
+Mondays at 09:00.
+
+## Token budget
+
+Free tiers have a daily cap, so the budget is checked before every request and
+recorded per batch. A run that hits the ceiling stops and resumes next time —
+it can't lock you out of your key.
+
+Jobs are scored 25 per request with compact positional replies. A full 3,400-job
+scan costs about 340K tokens. After that only new postings are scored, which is
+a few thousand a week.
+
+## Tests
+
+```bash
+for t in tests/test_*.py; do ./.venv/bin/python "$t"; done
+```
+
+Ten suites. Most exist because something broke in use — a threading crash in
+the live scan, an alert that would have fired 142 notifications at once, a
+malformed reply that killed a 3,000-job run.
+
+See [OVERVIEW.md](OVERVIEW.md) for architecture and design notes.
+
+## Notes
+
+Built by [@Rohan-Singhh](https://github.com/Rohan-Singhh). The grid UI took small
+inspiration from [this post](https://x.com/sarvagya_kul/status/2100980770206879849).
+
+Scores are a sort order, not a verdict — a 4/10 is still worth a glance.
+
+MIT
