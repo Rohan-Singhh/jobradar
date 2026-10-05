@@ -229,3 +229,56 @@ postings: **10–60 a week**, a few thousand tokens.
 
 ---
 
+## Schedules
+
+Two launchd agents, installed by `./install.sh`.
+
+| Job | When | Scope |
+|---|---|---|
+| `com.jobradar.daily` | daily 09:30 | shortlist only, skips aggregators |
+| `com.jobradar.weekly` | Mondays 09:00 | all 56 companies + aggregators |
+
+The daily run deliberately does **not** do a full scan — it fetches only the
+companies in `alerts.companies`. Seconds of work against half an hour.
+
+### Alert delivery
+
+- **Email** to the configured address, subject naming the role
+- **macOS banner** at the same moment
+
+Nothing is sent when nothing is new, so anything arriving means something
+actually opened.
+
+**First sighting is a baseline.** A newly added company has its whole board
+looking "new", which would fire dozens of alerts for months-old postings.
+Those are recorded silently; alerts begin from its next genuine opening. Each
+company baselines on its own schedule.
+
+---
+
+## The web UI
+
+```bash
+./run-web.sh        # http://localhost:8765
+```
+
+- **Grid** — every open job as a tile, logo from its company domain, tinted
+  from pale to deep green by match strength. Click to open the posting.
+- **Mosaic ordering** — jobs are dealt round-robin across companies. SQL order
+  would group every Stripe role into one block of identical logos.
+- **Search** — server-side across title, company, location and description.
+  Descriptions stay in SQLite; shipping thousands to the browser would be
+  megabytes.
+- **Filters** — minimum match, company, new-this-week.
+- **Live scan** — Server-Sent Events. Tiles light up as each company is fetched
+  and each job scored.
+- **Match Made** — on completion the grid recedes and the five strongest
+  matches step forward.
+- **Profile panel** — name, headline and experience parsed from your resume,
+  with the model's six sub-scores for whichever job is selected.
+
+The profile panel works with **no model configured** — the local parser reads
+the resume directly.
+
+---
+
