@@ -21,3 +21,19 @@ both startups and large enterprises on one list.
 
 ![email](docs/email.png)
 
+## Why it isn't just keyword matching
+
+Two rules run in code, not in the prompt, because a model asked nicely will
+comply inconsistently:
+
+**Seniority.** A Senior/Staff/Principal title caps at 3/10 however well the
+skills match. Without this, senior roles held 31 of the top 100 slots and the
+first junior role sat at position #67 — the jobs a new graduate could actually
+get were buried under the ones they could not.
+
+**Relevance.** A role weak on both skills and domain caps at 3/10. Otherwise a
+branch-office internship scores 8/10 for a developer purely because it is an
+internship.
+
+Both are arithmetic on data already stored, so `recap` re-applies them for free.
+
