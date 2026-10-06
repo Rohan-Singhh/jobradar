@@ -269,7 +269,14 @@ company baselines on its own schedule.
 - **Search** — server-side across title, company, location and description.
   Descriptions stay in SQLite; shipping thousands to the browser would be
   megabytes.
-- **Filters** — minimum match, company, new-this-week.
+- **Filters** — minimum match, company, new-this-week. Tiles are kept across
+  redraws and the survivors glide to their new cells (FLIP on the browser's
+  own Web Animations API, on-screen tiles only), so the grid never flashes.
+  GSAP's Flip plugin was tried first and took ~12 s per change at 1,200 tiles.
+- **Hover** — one outline glides between tiles, a card shows company, score,
+  title and the model's reason, and the panel previews the job.
+- **Demo scan** — open `/?demo` and Scan replays a scan from stored results,
+  to try the effects without spending tokens.
 - **Live scan** — Server-Sent Events. Tiles light up as each company is fetched
   and each job scored.
 - **Match Made** — on completion the grid recedes and the five strongest

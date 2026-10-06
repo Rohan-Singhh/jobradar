@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Job Radar</title>
-<link rel="stylesheet" href="/static/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%2343a273' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%2343a273'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
 <body>
-<header class="topbar">
+<header class="topbar" id="topbar">
   <div class="brand">
-    <span class="mark">◎</span><span class="brandname">Job Radar</span>
+    <span class="mark" aria-hidden="true">◎</span><span class="brandname">Job Radar</span>
   </div>
   <div class="stats">
     <div class="stat"><div class="label">Checked</div>
@@ -24,28 +25,31 @@
 <div class="titlerow">
   <h1>Picking the best company for <span id="who">you</span></h1>
   <div class="controls">
-    <input id="q" class="search" type="search" autocomplete="off"
-           placeholder="Search role or company — e.g. react, intern, Adobe">
-    <select id="minscore" class="sel" title="Minimum match">
+    <input id="q" class="search" type="search" autocomplete="off" aria-label="Search jobs"
+           placeholder="Search role or company, e.g. react, intern, Adobe">
+    <select id="minscore" class="sel" aria-label="Minimum match">
       <option value="0">any match</option>
       <option value="5">5+</option>
       <option value="6">6+</option>
       <option value="7">7+</option>
       <option value="8">8+</option>
     </select>
-    <select id="co" class="sel" title="Company"><option value="">all companies</option></select>
+    <select id="co" class="sel" aria-label="Company"><option value="">all companies</option></select>
     <label class="chk"><input type="checkbox" id="newonly"> new this week</label>
-    <button id="scan" class="scanbtn">Scan</button>
+    <button id="scan" class="scanbtn">
+      <span class="lbl">Scan</span></button>
   </div>
 </div>
 
 <main>
-  <section class="gridwrap">
-    <div id="grid" class="grid" aria-label="Jobs, tinted by match strength"></div>
+  <section class="gridwrap" id="gridwrap">
+    <div id="grid" class="grid loading" aria-label="Jobs, tinted by match strength"></div>
+    <div class="ring" id="ring" aria-hidden="true"></div>
+    <div class="ping" id="ping" aria-hidden="true"></div>
     <div class="legend">
       <span>less likely</span><i class="ramp"></i><span>more likely</span>
       <span class="sep"></span>
-      <span id="gridnote">no jobs yet — press Scan</span>
+      <span id="gridnote">loading jobs…</span>
     </div>
   </section>
 
@@ -55,7 +59,7 @@
         <div class="avatar" id="avatar">?</div>
         <div>
           <div class="kicker">Profile</div>
-          <div class="pname" id="p-name">—</div>
+          <div class="pname" id="p-name">…</div>
           <div class="pmeta" id="p-headline"></div>
           <div class="pmeta" id="p-location"></div>
           <div class="plinks" id="p-links"></div>
@@ -69,32 +73,34 @@
       </div>
     </div>
 
-    <div class="kicker sec">Experience</div>
+    <h3 class="sec">Experience</h3>
     <ul class="exp" id="exp"><li class="muted">loading…</li></ul>
 
     <div id="edu-sec" hidden>
-      <div class="kicker sec">Education</div>
+      <h3 class="sec">Education</h3>
       <ul class="exp" id="edu"></ul>
     </div>
 
     <div id="skills-sec" hidden>
-      <div class="kicker sec">Skills</div>
+      <h3 class="sec">Skills</h3>
       <div class="skills" id="skills"></div>
     </div>
 
-    <div class="kicker sec">Checking</div>
+    <h3 class="sec">Checking</h3>
     <ul class="checks" id="checks"></ul>
 
-    <div class="kicker sec">High probability of interviewing</div>
+    <h3 class="sec">High probability of interviewing</h3>
     <div class="tops" id="tops"><div class="muted">nothing scored yet</div></div>
 
     <details class="scorer" id="scorer" hidden>
-      <summary class="kicker sec">What the scorer sees</summary>
+      <summary class="sec">What the scorer sees</summary>
       <p class="scorer-text" id="scorer-text"></p>
     </details>
   </aside>
 </main>
 
-<script src="/static/app.js"></script>
+<div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
+
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>
