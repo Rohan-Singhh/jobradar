@@ -19,9 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from .. import sources
 from ..cursor import CursorError
 from ..llm import RateLimited
-from ..main import ROOT, get_profile, get_scorer, load_config, passes_filters
+from ..main import PROFILE_CACHE, ROOT, get_profile, get_scorer, load_config, passes_filters
 from ..relevance import apply_cap as apply_relevance_cap
-from ..resume import build_details, extract_text, parse_details
+from ..resume import EMPTY_DETAILS, build_details, extract_text, parse_details
 from ..seniority import apply_cap
 from ..store import Store
 
@@ -47,19 +47,37 @@ def index():
     return FileResponse(str(STATIC / "index.html"), headers={"Cache-Control": "no-cache"})
 
 
+# Bump when the shape of .resume_details.json changes, so old caches rebuild.
+DETAILS_VERSION = 2
+
+
+def _scorer_view(details: dict) -> dict:
+    """Add the resume summary the model ranks every job against. Read fresh
+    rather than cached here: a scan can rewrite it at any time."""
+    try:
+        cached = json.loads(PROFILE_CACHE.read_text())
+        return {**details, "scorer_profile": cached.get("profile", ""),
+                "scorer_kind": cached.get("kind", "")}
+    except (OSError, ValueError):
+        return {**details, "scorer_profile": "", "scorer_kind": ""}
+
+
 @app.get("/api/profile")
 def profile():
     c = cfg()
+    resume = ROOT / c["resume_path"]
+    stamp = resume.stat().st_mtime if resume.exists() else 0
     cache = ROOT / ".resume_details.json"
     if cache.exists():
         cached = json.loads(cache.read_text())
-        if cached.get("name"):          # only a real parse is worth keeping
-            return cached
+        # Only a real parse of this exact resume file is worth reusing.
+        if cached.get("name") and cached.get("v") == DETAILS_VERSION \
+                and cached.get("mtime") == stamp:
+            return _scorer_view(cached)
     try:
-        text = extract_text(ROOT / c["resume_path"])
+        text = extract_text(resume)
     except Exception as e:  # noqa: BLE001 - no resume at all
-        return {"name": "", "headline": "", "location": "", "experience": [],
-                "error": f"{type(e).__name__}: {e}"[:200]}
+        return _scorer_view({**EMPTY_DETAILS, "error": f"{type(e).__name__}: {e}"[:200]})
 
     # Reading a name off a resume does not need a model. Parse locally first so
     # the panel is populated with scoring off, then let a model refine it.
@@ -72,9 +90,9 @@ def profile():
                 details = better
     except Exception as e:  # noqa: BLE001 - keep the local parse, note why
         details["error"] = f"{type(e).__name__}: {e}"[:200]
-    if details.get("name"):
-        cache.write_text(json.dumps(details))
-    return details
+    if details.get("name") and not details.get("error"):
+        cache.write_text(json.dumps({**details, "v": DETAILS_VERSION, "mtime": stamp}))
+    return _scorer_view(details)
 
 
 @app.get("/api/state")
