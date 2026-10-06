@@ -20,7 +20,9 @@ from .. import sources
 from ..cursor import CursorError
 from ..llm import RateLimited
 from ..main import ROOT, get_profile, get_scorer, load_config, passes_filters
+from ..relevance import apply_cap as apply_relevance_cap
 from ..resume import build_details, extract_text, parse_details
+from ..seniority import apply_cap
 from ..store import Store
 
 STATIC = Path(__file__).parent / "static"
@@ -41,7 +43,8 @@ def store():
 
 @app.get("/")
 def index():
-    return FileResponse(str(STATIC / "index.html"))
+    # Revalidate every load, so an edited page shows up without a hard refresh.
+    return FileResponse(str(STATIC / "index.html"), headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/profile")
@@ -200,6 +203,10 @@ def _scan_events(limit: int):
                     break
                 for row in chunk:
                     score, reason, breakdown = results.get(row["id"], (0, "no result", {}))
+                    # The same two gates the CLI scan enforces; without them a
+                    # scan started here would rank senior roles at the top.
+                    score, reason = apply_cap(score, row["title"], reason)
+                    score, reason = apply_relevance_cap(score, breakdown, reason)
                     s.save_score(row["id"], score, reason, breakdown)
                     done += 1
                     emit("scored", id=row["id"], score=score, reason=reason,

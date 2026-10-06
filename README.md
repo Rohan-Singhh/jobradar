@@ -15,7 +15,8 @@ both startups and large enterprises on one list.
 - **Notices when jobs close.** A posting that disappears is marked dead and hidden.
 - **Ranks against your resume.** 0–10 with a reason, from an LLM that reads the
   job description.
-- **Daily alerts** for a shortlist of companies — email plus a desktop notification.
+- **Daily alerts** for a shortlist of companies — email, plus a desktop
+  notification on macOS.
 - **Weekly digest** every Monday, ranked.
 - **A local web UI** to search and filter everything.
 
@@ -39,7 +40,9 @@ Both are arithmetic on data already stored, so `recap` re-applies them for free.
 
 ## Setup
 
-Needs Python 3.11+ and a Mac (the schedules use launchd).
+Needs Python 3.11+. Runs on macOS and Windows.
+
+### macOS
 
 ```bash
 git clone https://github.com/Rohan-Singhh/jobradar.git
@@ -47,12 +50,34 @@ cd jobradar
 ./install.sh
 ```
 
-Then three things:
+### Windows
+
+Also needs [Git for Windows](https://git-scm.com/download/win) — the scripts
+run under its Git Bash — and Python from [python.org](https://www.python.org/downloads/).
+An MSYS2 or Cygwin Python will not work: its virtualenv has no `Scripts\` folder.
+
+In PowerShell:
+
+```powershell
+git clone https://github.com/Rohan-Singhh/jobradar.git
+cd jobradar
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+This creates the virtualenv, `config.yaml` and `run.sh`, and registers two
+Task Scheduler jobs, `jobradar-daily` and `jobradar-weekly`. They run only
+while you are logged in, and catch up on the next login if a slot was missed.
+
+Run every `./run.sh` command below from **Git Bash**, not PowerShell. Alerts
+arrive by email; the desktop notification is macOS-only.
+
+### Then three things
 
 **1. Your resume** — put a PDF in the folder, point `resume_path` at it in
 `config.yaml`.
 
-**2. Your keys** — `cp run.example.sh run.sh`, then fill in:
+**2. Your keys** — `cp run.example.sh run.sh` (the Windows installer already
+did this), then fill in:
 
 - An LLM key. Any OpenAI-compatible endpoint works; the default is
   [xkiro](https://xkiro.com) with Mistral Large 3, which has a free tier.
@@ -103,8 +128,14 @@ Find a company's board and slug in its careers URL:
 ./run-web.sh           # web UI
 ```
 
-`install.sh` registers two launchd jobs: daily alerts at 09:30, weekly digest
-Mondays at 09:00.
+The installer registers two schedules — launchd on macOS, Task Scheduler on
+Windows: daily alerts at 09:30, weekly digest Mondays at 09:00.
+
+On Windows, remove them with:
+
+```powershell
+Unregister-ScheduledTask -TaskName jobradar-daily, jobradar-weekly -Confirm:$false
+```
 
 ## Token budget
 
@@ -119,7 +150,8 @@ a few thousand a week.
 ## Tests
 
 ```bash
-for t in tests/test_*.py; do ./.venv/bin/python "$t"; done
+for t in tests/test_*.py; do ./.venv/bin/python "$t"; done          # macOS
+for t in tests/test_*.py; do ./.venv/Scripts/python "$t"; done      # Windows, Git Bash
 ```
 
 Ten suites. Most exist because something broke in use — a threading crash in

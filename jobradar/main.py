@@ -448,6 +448,12 @@ def cmd_list(store: Store, days: int) -> None:
 
 
 def main(argv=None) -> None:
+    # On Windows, output redirected to jobradar.log is encoded in the ANSI code
+    # page, which cannot represent most non-Latin job titles - one of those
+    # would crash a scheduled run mid-print.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(prog="jobradar")
     p.add_argument("--config", default=str(ROOT / "config.yaml"))
     sub = p.add_subparsers(dest="cmd", required=True)
