@@ -2,7 +2,7 @@
 fields it cannot find."""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from jobradar.resume import parse_details
+from jobradar.resume import EMPTY_DETAILS, build_details, parse_details, tidy
 
 # Deliberately mangled the way pdf extraction mangles a real CV: spaces
 # scattered through the header line, words run together in the summary.
@@ -40,7 +40,7 @@ assert all(e["org"].upper() not in ("SKILLS", "EXPERIENCE", "EDUCATION", "SUMMAR
 
 # nothing found -> empty, not guessed
 blank = parse_details("")
-assert blank == {"name": "", "headline": "", "location": "", "experience": [], "error": ""}
+assert blank == EMPTY_DETAILS, blank
 one = parse_details("Jane Roe\n")
 assert one["name"] == "Jane Roe" and one["experience"] == [] and one["location"] == ""
 
@@ -56,4 +56,40 @@ assert d2["experience"][0]["org"] == "Initech"
 # a phone number line must not be mistaken for a location
 d3 = parse_details("Bob Ross\n+1 555 0199, 0200\nEXPERIENCE\n")
 assert d3["location"] == "", d3["location"]
+
+# education is split out of experience, and the skills section is read
+assert [e["org"] for e in d["education"]] and "B.Tech" in d["education"][0]["org"], d["education"]
+assert all("B.Tech" not in e["org"] + e["role"] for e in d["experience"]), d["experience"]
+assert d["skills"] == ["JavaScript", "Python", "React"], d["skills"]
+assert {l["kind"]: l["url"] for l in d["links"]} == {
+    "github": "https://github.com/alexmorgan",
+    "linkedin": "https://www.linkedin.com/in/alex-morgan",
+    "email": "mailto:alex@example.com"}, d["links"]
+
+# school-level entries are dropped; a degree the model filed under experience
+# moves to education; the same institution is not listed twice
+work, study = tidy(
+    [{"org": "Fabric", "role": "Backend Engineer Intern", "years": "2026 - Present"},
+     {"org": "Vellore Institute of Technology", "role": "Bachelor of Technology", "years": "2023 - 2027"},
+     {"org": "St. Joseph School", "role": "Class 12th (CBSE)", "years": "2020 - 2022"},
+     {"org": "Galaxy Public School", "role": "Matriculation (10th Grade)", "years": "2019 - 2020"}],
+    [{"org": "Vellore Institute of Technology", "role": "B.Tech CSE", "years": "2023 - 2027"}])
+assert [e["org"] for e in work] == ["Fabric"], work
+assert [e["org"] for e in study] == ["Vellore Institute of Technology"], study
+# an internship at an institute is still work
+work, study = tidy([{"org": "Indian Institute of Science", "role": "Research Intern", "years": "2024"}], [])
+assert len(work) == 1 and not study
+
+# a model reply: links come from the resume text, never from the model
+class FakeLLM:
+    def complete(self, prompt, max_tokens=0):
+        return ('{"name": "Alex Morgan", "headline": "Developer", "location": "Ohio",'
+                ' "experience": [{"org": "Acme", "role": "Intern", "years": "2025"},'
+                ' {"org": "Some High School", "role": "Class 12th", "years": "2020"}],'
+                ' "education": [], "skills": ["React", "", "Python"],'
+                ' "links": [{"kind": "github", "url": "https://github.com/invented"}]}')
+m = build_details(RESUME, FakeLLM())
+assert [e["org"] for e in m["experience"]] == ["Acme"], m["experience"]
+assert m["skills"] == ["React", "Python"], m["skills"]
+assert all("invented" not in l["url"] for l in m["links"]) and len(m["links"]) == 3, m["links"]
 print("resume parsing tests PASS")
