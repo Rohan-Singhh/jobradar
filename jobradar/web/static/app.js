@@ -328,7 +328,6 @@ function startScan() {
       clearLit();
       es.close(); clearInterval(timer);
       btn.disabled = false; btn.textContent = "Scan";
-      loadState();
     }
   };
   es.onerror = () => {
