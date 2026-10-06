@@ -152,6 +152,24 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:0 2
   .mm-head{font-size:21px}
 }
 
+/* ---- profile extras ---- */
+.plinks{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:5px}
+.plinks a{font-size:12px;color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;
+  transition:color .15s, border-color .15s}
+.plinks a:hover{color:var(--ink);border-color:var(--line)}
+.skills{display:flex;flex-wrap:wrap;gap:5px}
+.skills span{font-size:11.5px;padding:3px 8px;border-radius:6px;background:var(--tile);color:var(--ink)}
+.scorer summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.scorer summary::-webkit-details-marker{display:none}
+.scorer summary::after{content:"+";font-size:13px;letter-spacing:0;color:var(--muted);transition:transform .2s ease}
+.scorer[open] summary::after{transform:rotate(45deg)}
+.scorer-text{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted);white-space:pre-line}
+
+/* The panel scrolls on its own instead of running past the window. */
+@media (min-width:981px){
+  .panel{max-height:calc(100vh - 28px);overflow:auto;overscroll-behavior:contain}
+}
+
 /* ---- gentle motion ---- */
 @keyframes tile-in{from{opacity:0;transform:scale(.6)}}
 @keyframes tile-fade{from{opacity:0}}

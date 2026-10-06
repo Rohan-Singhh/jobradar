@@ -58,6 +58,7 @@
           <div class="pname" id="p-name">—</div>
           <div class="pmeta" id="p-headline"></div>
           <div class="pmeta" id="p-location"></div>
+          <div class="plinks" id="p-links"></div>
         </div>
       </div>
       <div class="looking" id="looking">
@@ -71,11 +72,26 @@
     <div class="kicker sec">Experience</div>
     <ul class="exp" id="exp"><li class="muted">loading…</li></ul>
 
+    <div id="edu-sec" hidden>
+      <div class="kicker sec">Education</div>
+      <ul class="exp" id="edu"></ul>
+    </div>
+
+    <div id="skills-sec" hidden>
+      <div class="kicker sec">Skills</div>
+      <div class="skills" id="skills"></div>
+    </div>
+
     <div class="kicker sec">Checking</div>
     <ul class="checks" id="checks"></ul>
 
     <div class="kicker sec">High probability of interviewing</div>
     <div class="tops" id="tops"><div class="muted">nothing scored yet</div></div>
+
+    <details class="scorer" id="scorer" hidden>
+      <summary class="kicker sec">What the scorer sees</summary>
+      <p class="scorer-text" id="scorer-text"></p>
+    </details>
   </aside>
 </main>
 

@@ -292,19 +292,58 @@ async function loadProfile() {
   }
   $("p-headline").textContent = d.headline || "";
   $("p-location").textContent = d.location || "";
-  const ul = $("exp");
+
+  const LABELS = { github: "GitHub", linkedin: "LinkedIn", email: "Email" };
+  const links = $("p-links");
+  links.textContent = "";
+  for (const l of d.links || []) {
+    if (!/^(https:|mailto:)/.test(l.url || "")) continue;
+    const a = document.createElement("a");
+    a.href = l.url;
+    a.textContent = LABELS[l.kind] || l.kind;
+    a.title = l.label;
+    if (l.kind !== "email") { a.target = "_blank"; a.rel = "noopener"; }
+    links.appendChild(a);
+  }
+
+  fillEntries($("exp"), d.experience, d.error || "no resume parsed");
+  $("edu-sec").hidden = !(d.education || []).length;
+  fillEntries($("edu"), d.education);
+
+  const skills = $("skills");
+  skills.textContent = "";
+  (d.skills || []).forEach((s, i) => {
+    const chip = document.createElement("span");
+    chip.className = "rise";
+    chip.style.setProperty("--i", i);
+    chip.textContent = s;
+    skills.appendChild(chip);
+  });
+  $("skills-sec").hidden = !(d.skills || []).length;
+
+  // The summary the model ranks every job against. Worth checking: a wrong
+  // level or a missing skill here skews every score.
+  $("scorer").hidden = !d.scorer_profile;
+  $("scorer-text").textContent = (d.scorer_kind === "raw"
+    ? "No model summary yet, so the scorer is reading the raw resume text:\n\n" : "")
+    + (d.scorer_profile || "");
+}
+
+function fillEntries(ul, entries, emptyMsg = "") {
   ul.textContent = "";
-  if (!(d.experience || []).length) {
-    ul.innerHTML = `<li class="muted">${escapeHtml(d.error || "no resume parsed")}</li>`;
+  if (!(entries || []).length) {
+    if (emptyMsg) ul.innerHTML = `<li class="muted">${escapeHtml(emptyMsg)}</li>`;
     return;
   }
-  for (const e of d.experience) {
+  entries.forEach((e, i) => {
     const li = document.createElement("li");
+    li.className = "rise";
+    li.style.setProperty("--i", i);
     li.innerHTML = `<div><div class="org">${escapeHtml(e.org)}</div>
                     <div class="role">${escapeHtml(e.role)}</div></div>
                     <div class="yr">${escapeHtml(e.years)}</div>`;
     ul.appendChild(li);
-  }
+  });
 }
 
 let lit = [];
