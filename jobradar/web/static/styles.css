@@ -55,7 +55,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:0 2
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:5px}
 .tile{aspect-ratio:1;border-radius:7px;background:var(--tile);border:1px solid transparent;
   display:flex;align-items:center;justify-content:center;overflow:hidden;
-  transition:transform .12s, box-shadow .12s;cursor:pointer;position:relative}
+  transition:transform .12s, box-shadow .12s, background-color .5s ease;cursor:pointer;position:relative}
 .tile img{width:22px;height:22px;object-fit:contain;border-radius:4px}
 .tile .init{font-size:11px;font-weight:700;color:var(--muted)}
 .tile:hover{transform:scale(1.14);box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:5}
@@ -150,4 +150,19 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:0 2
 @media (max-width:720px){
   .mm-tile{width:84px;height:84px}
   .mm-head{font-size:21px}
+}
+
+/* ---- gentle motion ---- */
+@keyframes tile-in{from{opacity:0;transform:scale(.6)}}
+@keyframes tile-fade{from{opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(4px)}}
+/* "backwards" applies the start frame during the delay and then lets go, so
+   the hover scale still works once a tile has landed. */
+.grid.intro .tile{animation:tile-in .4s cubic-bezier(.2,.7,.3,1) backwards;
+  animation-delay:calc(var(--i, 0) * 3ms)}
+.grid.soft .tile{animation:tile-fade .18s ease-out backwards}
+.rise{animation:rise .3s ease-out backwards;animation-delay:calc(var(--i, 0) * 40ms)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
 }

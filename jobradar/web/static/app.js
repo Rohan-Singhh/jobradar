@@ -14,6 +14,26 @@ const CHECKS = [
   ["reach",     "realistic to land"],
 ];
 
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Count a number from what is on screen to `to`, easing out. A call that
+// lands mid-count carries on from the current value instead of jumping.
+function tweenNumber(el, to, decimals = 0, ms = 450) {
+  const target = Number(to) || 0;
+  const write = (v) => { el._val = v; el._shown = v.toFixed(decimals); el.textContent = el._shown; };
+  cancelAnimationFrame(el._raf);
+  if (reduceMotion()) { write(target); return; }
+  // Something else may have written the element since (the scan sets "…").
+  const from = el.textContent === el._shown ? el._val : (parseFloat(el.textContent) || 0);
+  const t0 = performance.now();
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / ms);
+    write(from + (target - from) * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) el._raf = requestAnimationFrame(step);
+  };
+  el._raf = requestAnimationFrame(step);
+}
+
 function bucket(score) {
   if (score === null || score === undefined) return "";
   return "s" + Math.min(5, Math.max(1, Math.ceil(score / 2)));
@@ -91,19 +111,27 @@ async function runSearch() {
   renderGrid();
 }
 
+// The first fill deals the tiles in with a short stagger; later redraws
+// (filters, search) only fade, so typing never waits on an animation.
+let introDone = false;
+
 function renderGrid() {
   const grid = $("grid");
   const f = currentFilter();
   grid.textContent = "";
   tiles.clear();
+  grid.classList.remove("intro", "soft");
+  grid.classList.add(introDone ? "soft" : "intro");
   let shown = 0;
   for (const j of jobs) {
     if (!matches(j, f)) continue;
     const el = makeTile(j);
+    if (!introDone) el.style.setProperty("--i", Math.min(shown, 300));
     tiles.set(j.id, el);
     grid.appendChild(el);
     shown++;
   }
+  if (shown) introDone = true;
   const filtered = f.q || f.min || f.company || f.newOnly;
   if (!jobs.length) {
     $("gridnote").textContent = "no jobs yet — press Scan";
@@ -141,10 +169,10 @@ function onFilterChange() {
 }
 
 function renderStats(s) {
-  $("s-checked").textContent = s.checked;
-  $("s-total").textContent = s.total;
-  $("s-hire").textContent = s.would_hire;
-  $("s-avg").textContent = Number(s.avg).toFixed(2);
+  tweenNumber($("s-checked"), s.checked);
+  tweenNumber($("s-total"), s.total);
+  tweenNumber($("s-hire"), s.would_hire);
+  tweenNumber($("s-avg"), Number(s.avg), 2);
 }
 
 function renderTops() {
@@ -189,15 +217,26 @@ function renderChecks(job) {
   if (job && job.breakdown) {
     bd = typeof job.breakdown === "string" ? safeParse(job.breakdown) : job.breakdown;
   }
-  for (const [key, claim] of CHECKS) {
-    const val = Math.max(0, Math.min(100, Number(bd[key]) || 0));
-    const li = document.createElement("li");
-    li.innerHTML = `<span class="k">${key}</span>
-      <span class="claim">${claim}</span>
-      <span class="bar"><i style="width:${val}%"></i></span>
-      <span class="n">${val}</span>`;
-    ul.appendChild(li);
+  // The six rows are built once; after that only the bars and numbers move,
+  // so switching jobs slides them to the new values instead of redrawing.
+  if (ul.children.length !== CHECKS.length || ul.querySelector(".offnote")) {
+    ul.textContent = "";
+    for (const [key, claim] of CHECKS) {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="k">${key}</span>
+        <span class="claim">${claim}</span>
+        <span class="bar"><i></i></span>
+        <span class="n">0</span>`;
+      ul.appendChild(li);
+    }
+    void ul.offsetWidth;            // commit width 0 so the first values grow in
   }
+  CHECKS.forEach(([key], i) => {
+    const val = Math.max(0, Math.min(100, Number(bd[key]) || 0));
+    const li = ul.children[i];
+    li.querySelector(".bar i").style.width = `${val}%`;
+    tweenNumber(li.querySelector(".n"), val);
+  });
 }
 
 function safeParse(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
