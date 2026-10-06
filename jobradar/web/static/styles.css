@@ -162,6 +162,8 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;padding:0 2
   animation-delay:calc(var(--i, 0) * 3ms)}
 .grid.soft .tile{animation:tile-fade .18s ease-out backwards}
 .rise{animation:rise .3s ease-out backwards;animation-delay:calc(var(--i, 0) * 40ms)}
+.lk-company,.lk-title{transition:opacity .15s ease}
+.looking.swap .lk-company,.looking.swap .lk-title{opacity:.35}
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}

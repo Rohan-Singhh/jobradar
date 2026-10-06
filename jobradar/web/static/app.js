@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const tiles = new Map();          // job id -> tile element
 let jobs = [];
+let byId = new Map();             // job id -> job, for hover lookups
 let scoringOn = true;
 let t0 = 0, timer = null;
 
@@ -60,6 +61,7 @@ function attachLogo(el, job, px) {
 function makeTile(job) {
   const el = document.createElement("div");
   el.className = "tile " + bucket(job.score);
+  el.dataset.id = job.id;
   el.title = `${job.title} — ${job.company}` + (job.score !== null ? ` · ${job.score}/10` : "");
   attachLogo(el, job);
   el.onclick = () => { if (job.url) window.open(job.url, "_blank", "noopener"); };
@@ -120,6 +122,7 @@ function renderGrid() {
   const f = currentFilter();
   grid.textContent = "";
   tiles.clear();
+  hovered = null;
   grid.classList.remove("intro", "soft");
   grid.classList.add(introDone ? "soft" : "intro");
   let shown = 0;
@@ -239,6 +242,29 @@ function renderChecks(job) {
   });
 }
 
+// --- hover preview -----------------------------------------------------------
+// Hovering a tile shows that job in the panel. It stays until another tile is
+// hovered, so sweeping across the grid never flickers back to idle. A running
+// scan owns the panel, so previews pause until it ends.
+let hovered = null;
+let swapTimer = null;
+
+function previewJob(job) {
+  if ($("scan").disabled) return;
+  const box = $("looking");
+  box.classList.add("swap");
+  clearTimeout(swapTimer);
+  swapTimer = setTimeout(() => {
+    $("lk-company").textContent = job.company;
+    $("lk-title").textContent = job.title;
+    box.classList.remove("swap");
+  }, 90);
+  const lk = $("lk-score");
+  if (job.score !== null && job.score !== undefined) tweenNumber(lk, job.score / 10, 2);
+  else { cancelAnimationFrame(lk._raf); lk.textContent = ""; }
+  renderChecks(job);
+}
+
 function safeParse(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
 
 function escapeHtml(s) {
@@ -250,6 +276,7 @@ async function loadState() {
   const r = await fetch("/api/state");
   const d = await r.json();
   jobs = d.jobs;
+  byId = new Map(jobs.map((j) => [j.id, j]));
   scoringOn = d.scoring !== false;
   fillCompanies();
   renderGrid(); renderStats(d.stats); renderTops();
@@ -428,6 +455,13 @@ $("co").addEventListener("change", renderGrid);
 $("newonly").addEventListener("change", renderGrid);
 $("q").addEventListener("keydown", (e) => {
   if (e.key === "Escape") { $("q").value = ""; searchIds = null; renderGrid(); }
+});
+$("grid").addEventListener("mouseover", (e) => {
+  const el = e.target.closest(".tile");
+  if (!el || el === hovered) return;
+  hovered = el;
+  const job = byId.get(el.dataset.id);
+  if (job) previewJob(job);
 });
 loadProfile();
 loadState();
