@@ -29,7 +29,10 @@ ENDPOINTS = {
 
 
 class LLM:
-    def __init__(self, provider: str, model: str):
+    def __init__(self, provider: str, model: str, api_key: str | None = None):
+        """`api_key` overrides the environment. The hosted site passes each
+        visitor's own key per request, so it is never read from or written
+        to the server's environment."""
         self.provider = provider
         if provider not in ENDPOINTS:
             raise ValueError(f"unknown provider '{provider}'")
@@ -38,7 +41,7 @@ class LLM:
         self._lock = threading.Lock()   # one thread waits out a window, not all of them
         self.input_tokens = 0
         self.output_tokens = 0
-        self.key = os.environ.get(env, "") if env else ""
+        self.key = api_key or (os.environ.get(env, "") if env else "")
         if env and (not self.key or self.key.startswith("paste-your")):
             raise RuntimeError(f"set {env} in your environment (free key, no card needed)")
 
@@ -170,9 +173,9 @@ class ChatScorer:
 
     batch_size = 25
 
-    def __init__(self, provider: str, model: str):
+    def __init__(self, provider: str, model: str, api_key: str | None = None):
         self.provider = provider
-        self.llm = LLM(provider, model)
+        self.llm = LLM(provider, model, api_key)
         self.input_tokens = 0
 
     def score_batch(self, profile: str, jobs: list[dict]) -> dict[str, tuple]:
