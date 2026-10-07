@@ -12,9 +12,10 @@ import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from .. import sources
 from ..cursor import CursorError
@@ -26,6 +27,9 @@ from ..seniority import apply_cap
 from ..store import Store
 
 STATIC = Path(__file__).parent / "static"
+# The page is one template shared with the hosted site, which adds its own extras.
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+ASSET_VERSION = "4"
 app = FastAPI(title="Job Radar")
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
@@ -42,9 +46,10 @@ def store():
 
 
 @app.get("/")
-def index():
+def index(request: Request):
     # Revalidate every load, so an edited page shows up without a hard refresh.
-    return FileResponse(str(STATIC / "index.html"), headers={"Cache-Control": "no-cache"})
+    return templates.TemplateResponse(request, "app.html", {"hosted": False, "v": ASSET_VERSION},
+                                      headers={"Cache-Control": "no-cache"})
 
 
 # Bump when the shape of .resume_details.json changes, so old caches rebuild.
