@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+{# DRAFT: rewrite every paragraph on this page in your own words before launch. #}
+<section class="hero">
+  <h1>Find the jobs worth applying to, ranked against your resume</h1>
+  <p class="lede">Job Radar watches the career pages of companies like Stripe, Notion, Databricks,
+    Adobe and Atlassian, reads every opening, and scores each one from 0 to 10 against your
+    resume, with a one-line reason. New roles and closed ones show up the moment they change.</p>
+  <p class="actions">
+    <a class="btn primary" href="/app">Open the app</a>
+    <a class="btn" href="/setup">Run it on your own computer</a>
+  </p>
+</section>
+
+<figure class="shot">
+  <img src="/static/img/grid.webp?v={{ v }}" width="1400" height="900" fetchpriority="high"
+       alt="The Job Radar grid: one tile per open job with the company logo, tinted from pale to deep green by match score, next to a profile panel showing the candidate's experience and six sub-scores for the selected job">
+  <figcaption>Every open role is one tile. The greener it is, the better it fits your resume.</figcaption>
+</figure>
+
+<section>
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li><strong>Add your resume and an API key.</strong> A free key from xkiro is enough.
+      Both stay in your browser.</li>
+    <li><strong>Press Scan.</strong> Job Radar pulls every open role from the tracked company boards
+      and has a language model read each one against your resume, 25 at a time.</li>
+    <li><strong>Work down the list.</strong> Hover a tile to see why it scored what it did, then
+      open the posting. Come back later and only the new roles need scoring.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Scores that respect your level</h2>
+  <p>A model asked to be careful about seniority is not always careful, so two rules are
+    enforced in code. A Senior, Staff or Principal title cannot score above 3, however well the
+    skills match, and a role that is weak on both skills and field is capped too. Without the first
+    rule, senior roles filled a third of the top 100 and the first job a new graduate could get sat
+    at position 67.</p>
+  <figure class="shot small">
+    <img src="/static/img/email.webp?v={{ v }}" width="760" height="900" loading="lazy" decoding="async"
+         alt="A Job Radar email digest listing new openings with their match scores, company, location and how long ago each was posted">
+    <figcaption>Run it yourself and it also emails you a digest and same-day alerts.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>What stays private</h2>
+  <p>Your API key and resume are kept in your own browser. When you scan, the key travels with the
+    request to the AI provider and is dropped as soon as the reply comes back. Nothing you add is
+    written to disk or logged on the server, and <a href="/app">the app</a> has a button that wipes it
+    from your browser too.</p>
+</section>
+
+<section class="faq">
+  <h2>Questions</h2>
+  {% for item in faq %}
+  <h3>{{ item.q }}</h3>
+  <p>{{ item.a }}</p>
+  {% endfor %}
+</section>
+
+<section class="byline">
+  <p>Job Radar is made and maintained by <a href="{{ site.author.path }}" rel="author">{{ site.author.name }}</a>.
+    The code is open on <a href="{{ site.source }}">GitHub</a>.</p>
+</section>
+{% endblock %}

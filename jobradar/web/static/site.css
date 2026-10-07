@@ -1,0 +1,67 @@
+/* Public pages: home, setup guide, author. Same palette as the app. */
+:root{
+  --bg:#fafafa; --ink:#111214; --muted:#5f6670; --line:#e6e7ea; --tile:#f1f2f4; --panel:#fff;
+  --g5:#3fae79; --accent:#111214;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e0f11;--ink:#f2f3f5;--muted:#9aa0a8;--line:#23262b;--tile:#17191d;--panel:#111316;
+    --g5:oklch(.63 .13 158);--accent:#f2f3f5}
+}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--g5);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--g5);outline-offset:2px}
+
+.site-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  max-width:960px;margin:0 auto;padding:18px 24px}
+.brand{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:17px;color:var(--ink);text-decoration:none}
+.mark{color:var(--g5);font-size:19px}
+.site-nav{display:flex;gap:20px;flex-wrap:wrap}
+.site-nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.site-nav a:hover{color:var(--ink)}
+
+.crumbs{max-width:760px;margin:0 auto;padding:0 24px}
+.crumbs ol{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:8px 0 0;padding:0;font-size:13px;color:var(--muted)}
+.crumbs li+li::before{content:"/";margin-right:6px;color:var(--line)}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{color:var(--ink)}
+
+.site-main{max-width:760px;margin:0 auto;padding:24px 24px 48px}
+h1{font-size:clamp(28px,4.4vw,40px);line-height:1.15;letter-spacing:-.025em;font-weight:600;margin:12px 0 16px}
+h2{font-size:22px;letter-spacing:-.015em;font-weight:600;margin:48px 0 12px}
+h3{font-size:16px;font-weight:600;margin:24px 0 4px}
+p{margin:0 0 14px}
+.lede{font-size:18px;color:var(--muted)}
+code{font-family:var(--mono);font-size:.9em;background:var(--tile);padding:1px 6px;border-radius:4px}
+pre{background:var(--tile);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;
+  font-size:14px;line-height:1.55}
+pre code{background:none;padding:0}
+ul,ol{padding-left:22px}
+li{margin:4px 0}
+
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.btn{display:inline-block;padding:10px 18px;border-radius:8px;border:1px solid var(--line);color:var(--ink);
+  text-decoration:none;font-weight:500;font-size:15px;transition:border-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+
+/* Width and height attributes on every image reserve its box, so nothing
+   jumps when it loads; aspect-ratio keeps that true at any width. */
+.shot{margin:32px 0 0}
+.shot img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);background:var(--tile)}
+.shot.small{max-width:380px}
+.shot.small img{aspect-ratio:760/900}
+.shot img[width="1400"]{aspect-ratio:1400/900}
+figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+.steps li{margin:10px 0}
+.faq h3{margin-top:22px}
+.byline{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+.prose .todo{color:var(--muted);font-style:italic}
+.author .links{list-style:none;padding:0;display:flex;gap:18px;flex-wrap:wrap}
+
+.site-foot{max-width:960px;margin:0 auto;padding:24px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.site-foot a{color:var(--muted)}
+.site-foot a:hover{color:var(--ink)}
