@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="prose notfound">
+  <h1>Page not found</h1>
+  <p>Nothing lives at <code>{{ missing }}</code>. It may have moved, or the link has a typo.</p>
+  <p class="actions">
+    <a class="btn primary" href="/">Go to the home page</a>
+    <a class="btn" href="/app">Open the app</a>
+  </p>
+</article>
+{% endblock %}

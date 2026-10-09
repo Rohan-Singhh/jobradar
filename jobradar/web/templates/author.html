@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+{# DRAFT: this bio is assembled from your resume. Rewrite it in your own voice,
+   and fill in the "why" paragraph yourself - only you can write that one. #}
+<article class="prose author">
+  <h1>{{ site.author.name }}</h1>
+  <p class="lede">Backend engineer and the maker of Job Radar.</p>
+
+  <p>I'm a backend engineering intern at Fabric, where I work on the systems behind an AI hiring
+    platform: a fault-tolerant task queue, an applicant-tracking pipeline, and checks that flag fake
+    candidates during live interviews. Before that I built Node.js services and tuned PostgreSQL
+    queries at Orbosis.</p>
+  <p>I'm studying Computer Science at VIT Bhopal (2023 to 2027). Outside work I do competitive
+    programming: over a thousand problems solved across Codeforces, LeetCode and CodeChef.</p>
+
+  <h2>Why Job Radar</h2>
+  <p class="todo">[Write this yourself: what problem you hit while job hunting, and what Job Radar does
+    about it.]</p>
+
+  <h2>Find me</h2>
+  <ul class="links">
+    <li><a href="{{ site.author.github }}" rel="me">GitHub</a></li>
+    <li><a href="{{ site.author.linkedin }}" rel="me">LinkedIn</a></li>
+    <li><a href="{{ site.source }}">Job Radar source code</a></li>
+  </ul>
+</article>
+{% endblock %}

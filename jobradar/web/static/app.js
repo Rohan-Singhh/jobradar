@@ -9,6 +9,26 @@ let t0 = 0, timer = null;
 // instead of starting a real one, so trying the effects never spends tokens.
 const DEMO_SCAN = new URLSearchParams(location.search).has("demo");
 
+// Where jobs, the profile and scans come from. The local app asks its own
+// server; the hosted site loads hosted.js first, which keeps everything in
+// the visitor's browser and supplies the same four calls.
+const source = window.JobRadarSource || {
+  state: () => fetch("/api/state").then((r) => r.json()),
+  profile: () => fetch("/api/profile").then((r) => r.json()),
+  search: (q) => fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => r.json()).then((d) => d.ids),
+  scan(onEvent) {
+    const es = new EventSource("/api/scan?limit=3000");
+    es.onmessage = (ev) => {
+      const d = JSON.parse(ev.data);
+      onEvent(d);
+      if (d.type === "done" || d.type === "error") es.close();
+    };
+    // A dropped connection. Close rather than let EventSource reconnect,
+    // which would start a second scan.
+    es.onerror = () => { es.close(); onEvent({ type: "error", message: "scan connection lost" }); };
+  },
+};
+
 const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const motionOK = () => !reduceMotion();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -121,9 +141,8 @@ async function runSearch() {
   const q = ($("q").value || "").trim();
   if (!q) { searchIds = null; renderGrid(); return; }
   try {
-    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-    const d = await r.json();
-    searchIds = d.ids === null ? null : new Set(d.ids);
+    const ids = await source.search(q);
+    searchIds = ids === null ? null : new Set(ids);
   } catch {
     searchIds = null;        // a failed lookup shows everything, not nothing
   }
@@ -406,8 +425,7 @@ function escapeHtml(s) {
 
 // --- data ------------------------------------------------------------------------
 async function loadState() {
-  const r = await fetch("/api/state");
-  const d = await r.json();
+  const d = await source.state();
   jobs = d.jobs;
   byId = new Map(jobs.map((j) => [j.id, j]));
   scoringOn = d.scoring !== false;
@@ -417,7 +435,7 @@ async function loadState() {
 }
 
 async function loadProfile() {
-  const d = await fetch("/api/profile").then((r) => r.json());
+  const d = await source.profile();
   if (d.name) {
     $("p-name").textContent = d.name;
     $("who").textContent = d.name.split(" ")[0];
@@ -574,6 +592,8 @@ function handleScanEvent(d) {
     $("gridnote").textContent = `rate limited after ${d.scored}; press Scan again to continue`;
   } else if (d.type === "error") {
     $("gridnote").textContent = d.message;
+    $("ring").classList.remove("on");
+    endScan();
   } else if (d.type === "done") {
     $("s-time").textContent = d.elapsed.toFixed(1);
     $("ring").classList.remove("on");
@@ -586,13 +606,7 @@ function handleScanEvent(d) {
 
 function startScan() {
   beginScan();
-  const es = new EventSource("/api/scan?limit=3000");
-  es.onmessage = (ev) => {
-    const d = JSON.parse(ev.data);
-    handleScanEvent(d);
-    if (d.type === "done") es.close();
-  };
-  es.onerror = () => { es.close(); endScan(); };
+  source.scan(handleScanEvent);
 }
 
 // Replays a scan from what is already on file: a few companies are "fetched",
@@ -715,5 +729,8 @@ $("newonly").addEventListener("change", renderGrid);
 $("q").addEventListener("keydown", (e) => {
   if (e.key === "Escape") { $("q").value = ""; searchIds = null; renderGrid(); }
 });
-loadProfile();
-loadState();
+loadProfile().catch(() => { $("p-name").textContent = "Your resume"; });
+loadState().catch((e) => {
+  $("grid").classList.remove("loading");
+  $("gridnote").textContent = `couldn't load jobs: ${e.message || e}`;
+});

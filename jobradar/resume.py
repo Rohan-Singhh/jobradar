@@ -11,12 +11,25 @@ def extract_text(path: str | Path) -> str:
     if not p.exists():
         raise FileNotFoundError(f"resume not found: {p}")
     if p.suffix.lower() == ".pdf":
-        try:
-            from pypdf import PdfReader
-        except ImportError as e:
-            raise RuntimeError("pip install pypdf to read PDF resumes") from e
-        return "\n".join(page.extract_text() or "" for page in PdfReader(str(p)).pages)
+        return _pdf_text(str(p))
     return p.read_text(encoding="utf-8", errors="replace")
+
+
+def text_from_upload(data: bytes, filename: str) -> str:
+    """The same, for a file that only exists in memory: the hosted site reads
+    an uploaded resume without ever writing it to disk."""
+    if filename.lower().endswith(".pdf") or data[:5] == b"%PDF-":
+        import io
+        return _pdf_text(io.BytesIO(data))
+    return data.decode("utf-8", errors="replace")
+
+
+def _pdf_text(source) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as e:
+        raise RuntimeError("pip install pypdf to read PDF resumes") from e
+    return "\n".join(page.extract_text() or "" for page in PdfReader(source).pages)
 
 
 PROFILE_PROMPT = """Summarize this resume into a hiring profile of at most 180 words.

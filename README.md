@@ -137,6 +137,21 @@ On Windows, remove them with:
 Unregister-ScheduledTask -TaskName jobradar-daily, jobradar-weekly -Confirm:$false
 ```
 
+## Public site
+
+`jobradar.web.hosted` is a website version: a landing page, a setup guide, an
+author page, and the app at `/app`. Each visitor adds their own API key and
+resume, which stay in their browser. The server only lists public jobs and
+relays scoring requests, storing nothing. There are no emails or schedules,
+since those would need stored credentials.
+
+```bash
+./.venv/bin/uvicorn jobradar.web.hosted:app --port 8780
+```
+
+It deploys to Render from `render.yaml`. See [docs/launch.md](docs/launch.md)
+for the domain, Google Search Console and launch checklist.
+
 ## Token budget
 
 Free tiers have a daily cap, so the budget is checked before every request and

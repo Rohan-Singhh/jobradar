@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+{# DRAFT: rewrite in your own words before launch. The commands are exact; keep those. #}
+<article class="prose">
+  <h1>Run Job Radar on your own computer</h1>
+  <p class="lede">The hosted app is the quickest way in. Running it yourself adds what a website that
+    stores nothing cannot do: a daily email when a role opens at a company you care about, and a
+    ranked digest every Monday.</p>
+
+  <h2>What you need</h2>
+  <ul>
+    <li>Python 3.11 or newer</li>
+    <li>On Windows, <a href="https://git-scm.com/download/win">Git for Windows</a>; the scripts run in its Git Bash</li>
+    <li>Your resume as a PDF</li>
+    <li>A free API key from <a href="https://xkiro.com">xkiro</a></li>
+    <li>For email, a Gmail account with an <a href="https://myaccount.google.com/apppasswords">App Password</a></li>
+  </ul>
+
+  <h2>Windows</h2>
+  <p>In PowerShell:</p>
+  <pre><code>git clone {{ site.source }}.git
+cd jobradar
+powershell -ExecutionPolicy Bypass -File install.ps1</code></pre>
+  <p>This creates the Python environment, <code>config.yaml</code> and <code>run.sh</code>, and adds two
+    Task Scheduler jobs. Run every <code>./run.sh</code> command from Git Bash.</p>
+
+  <h2>macOS</h2>
+  <p>Clone into your home folder; macOS blocks background jobs from reading Desktop and Documents.</p>
+  <pre><code>cd ~
+git clone {{ site.source }}.git
+cd jobradar
+./install.sh
+cp run.example.sh run.sh</code></pre>
+
+  <h2>Add your details</h2>
+  <ol>
+    <li>Copy your resume PDF into the folder and set <code>resume_path</code> in <code>config.yaml</code>.</li>
+    <li>Put your Gmail address in <code>email.to</code> and <code>email.from</code>, and list the companies
+      you want daily alerts for under <code>alerts.companies</code>.</li>
+    <li>Open <code>run.sh</code> and paste in your xkiro key and Gmail App Password.</li>
+  </ol>
+
+  <h2>Run it</h2>
+  <pre><code>./run.sh test     # sends a test email
+./run.sh scan     # fetch every board and score the jobs
+./run-web.sh      # the app, at http://localhost:8765</code></pre>
+  <p>The first scan scores every open role and uses roughly 150,000 to 350,000 tokens of the free
+    daily allowance. Later scans only score what is new.</p>
+
+  <h2>What runs on its own</h2>
+  <ul>
+    <li>Every day at 09:30: checks your shortlist and emails you if a strong match opened.</li>
+    <li>Every Monday at 09:00: a full scan and a ranked digest of the week's new roles.</li>
+  </ul>
+  <p>The first alert run sends nothing: it records what is already open, so you are not emailed
+    about postings that have been up for months.</p>
+</article>
+{% endblock %}

@@ -1,17 +1,24 @@
-<!DOCTYPE html>
+{% import "_seo.html" as seo %}<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Job Radar</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%2343a273' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%2343a273'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/static/styles.css?v=3">
+{% if hosted %}{{ seo.head(page, site) }}{% else %}<title>Job Radar</title>{% endif %}
+{{ seo.favicon() }}
+<link rel="stylesheet" href="/static/styles.css?v={{ v }}">
 </head>
-<body>
+<body{% if hosted %} class="hosted"{% endif %}>
 <header class="topbar" id="topbar">
+  {% if hosted %}
+  <nav class="brand" aria-label="Breadcrumb">
+    <a class="brandlink" href="/"><span class="mark" aria-hidden="true">◎</span><span class="brandname">Job Radar</span></a>
+    <span class="crumbsep" aria-hidden="true">/</span><span aria-current="page">App</span>
+  </nav>
+  {% else %}
   <div class="brand">
     <span class="mark" aria-hidden="true">◎</span><span class="brandname">Job Radar</span>
   </div>
+  {% endif %}
   <div class="stats">
     <div class="stat"><div class="label">Checked</div>
       <div class="value"><span id="s-checked">0</span><span class="of">/<span id="s-total">0</span></span></div></div>
@@ -36,6 +43,7 @@
     </select>
     <select id="co" class="sel" aria-label="Company"><option value="">all companies</option></select>
     <label class="chk"><input type="checkbox" id="newonly"> new this week</label>
+    {% if hosted %}<button id="settings" class="ghostbtn" type="button">Key &amp; resume</button>{% endif %}
     <button id="scan" class="scanbtn">
       <span class="lbl">Scan</span></button>
   </div>
@@ -73,23 +81,23 @@
       </div>
     </div>
 
-    <h3 class="sec">Experience</h3>
+    <h2 class="sec">Experience</h2>
     <ul class="exp" id="exp"><li class="muted">loading…</li></ul>
 
     <div id="edu-sec" hidden>
-      <h3 class="sec">Education</h3>
+      <h2 class="sec">Education</h2>
       <ul class="exp" id="edu"></ul>
     </div>
 
     <div id="skills-sec" hidden>
-      <h3 class="sec">Skills</h3>
+      <h2 class="sec">Skills</h2>
       <div class="skills" id="skills"></div>
     </div>
 
-    <h3 class="sec">Checking</h3>
+    <h2 class="sec">Checking</h2>
     <ul class="checks" id="checks"></ul>
 
-    <h3 class="sec">High probability of interviewing</h3>
+    <h2 class="sec">High probability of interviewing</h2>
     <div class="tops" id="tops"><div class="muted">nothing scored yet</div></div>
 
     <details class="scorer" id="scorer" hidden>
@@ -101,6 +109,39 @@
 
 <div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
 
-<script src="/static/app.js?v=3"></script>
+{% if hosted %}
+<dialog class="setup" id="setup" aria-labelledby="setup-title">
+  <form id="setup-form" method="dialog">
+    <h2 id="setup-title">Your key and resume</h2>
+    <p class="setup-note">Both stay in this browser. When you scan, your key goes with the request
+      to the AI provider and is dropped when the reply comes back. Nothing is stored on the server.</p>
+
+    <label>AI provider
+      <select id="setup-provider" class="sel">
+        <option value="xkiro">xkiro (free tier)</option>
+        <option value="openrouter">OpenRouter</option>
+      </select></label>
+    <label>API key
+      <input id="setup-key" class="search" type="password" autocomplete="off" spellcheck="false" required
+             placeholder="Paste your key"></label>
+    <p class="setup-hint">No key yet? Get a free one at <a href="https://xkiro.com" target="_blank" rel="noopener">xkiro.com</a>.</p>
+    <label>Model
+      <input id="setup-model" class="search" type="text" autocomplete="off" spellcheck="false"></label>
+    <label>Resume (PDF)
+      <input id="setup-resume" type="file" accept=".pdf,.txt,application/pdf,text/plain"></label>
+    <p class="setup-hint" id="setup-resume-hint"></p>
+
+    <p class="setup-status" id="setup-status" role="status"></p>
+    <div class="setup-actions">
+      <button type="button" class="ghostbtn danger" id="setup-forget">Forget me</button>
+      <span class="sep"></span>
+      <button type="button" class="ghostbtn" id="setup-cancel">Cancel</button>
+      <button type="submit" class="scanbtn" id="setup-save"><span class="lbl">Save</span></button>
+    </div>
+  </form>
+</dialog>
+<script src="/static/hosted.js?v={{ v }}"></script>
+{% endif %}
+<script src="/static/app.js?v={{ v }}"></script>
 </body>
 </html>

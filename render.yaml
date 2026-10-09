@@ -1,0 +1,21 @@
+# Render Blueprint for the public site (jobradar.web.hosted).
+# Dashboard: New > Blueprint > pick this repo. Then set SITE_URL to your
+# domain (e.g. https://jobradar.dev) and, once Search Console gives you one,
+# GOOGLE_SITE_VERIFICATION. The site stores nothing, so it needs no disk.
+services:
+  - type: web
+    name: jobradar
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # --proxy-headers so links and the sitemap say https, not the http that
+    # Render's proxy speaks to the app.
+    startCommand: uvicorn jobradar.web.hosted:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /robots.txt
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SITE_URL
+        sync: false
+      - key: GOOGLE_SITE_VERIFICATION
+        sync: false

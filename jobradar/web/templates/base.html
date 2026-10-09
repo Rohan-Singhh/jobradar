@@ -1,0 +1,40 @@
+{% import "_seo.html" as seo %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{ seo.head(page, site) }}
+{{ seo.favicon() }}
+<link rel="stylesheet" href="/static/site.css?v={{ v }}">
+</head>
+<body>
+<header class="site-head">
+  <a class="brand" href="/"><span class="mark" aria-hidden="true">◎</span>Job Radar</a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="/app">Open the app</a>
+    <a href="/setup">Run it yourself</a>
+    <a href="{{ site.author.path }}">Author</a>
+  </nav>
+</header>
+
+{% if page.crumbs | length > 1 %}
+<nav class="crumbs" aria-label="Breadcrumb">
+  <ol>
+    {% for c in page.crumbs %}
+    <li>{% if not loop.last %}<a href="{{ c.path }}">{{ c.name }}</a>{% else %}<span aria-current="page">{{ c.name }}</span>{% endif %}</li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}
+
+<main class="site-main">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="site-foot">
+  <p>Made by <a href="{{ site.author.path }}" rel="author">{{ site.author.name }}</a>
+    · <a href="{{ site.source }}">Source on GitHub</a>
+    · Built on <a href="https://github.com/suvamneog/jobradar">suvamneog/jobradar</a> (MIT)</p>
+</footer>
+</body>
+</html>
